@@ -2,31 +2,66 @@ import os
 import sys
 import gtk
 import optparse
+import simplejson
 from ConfigParser import ConfigParser
 
 from bbnotify.notificator import Notificator
 from bbnotify.daemonize import daemonize
 
 
+DEFAULT_CONFIG = {
+    'url': None,
+    'protocol': 'xmlrpc',
+    'group': False,
+    'ignore_builders': [],
+    'include_builders': []
+}
+
+
+def get_config_format(config_fp):
+    config = config_fp.read().strip()
+    config_fp.seek(0)
+    if config.startswith('{'):
+        return 'json'
+    return 'config'
+    
+    
+def parse_config(config, config_fp):
+    cp = ConfigParser({'url': "", 'ignore-builders': "", 'include-builders': ""})
+    cp.read(config_fp)
+    config['url'] = cp.get("bbnotify", "url")
+    if cp.get("bbnotify", "ignore-builders"):
+        config['ignore_builders'] = config['ignore_builders'].split()
+    if cp.get("bbnotify", "include-builders"):
+        config['include_builders'] = config['include_builders'].split()
+    if cp.get("bbnotify", "protocol"):
+        config['protocol'] = cp.get("bbnotify", "protocol")
+    return config
+
+    
+def parse_json(config, config_fp):
+    config.update(simplejson.load(config_fp))
+    return config
+
+
+CONFIG_PARSERS = {
+    'json': parse_json,
+    'config': parse_config,
+}
+    
+
 def main():
     usage = """Usage: %prog [options] http://buildboturl/xmlrpc"""
-    url = None
-    ignore_builders = None
+    config = DEFAULT_CONFIG.copy()
 
     # parse ~/.bbnotifyrc
-    cp = ConfigParser({'url': "", 'ignore-builders': "", 'include-builders': ""})
-    configfile = os.path.expanduser("~/.bbnotifyrc")
-    ignore_builders = []
-    include_builders = []
-    protocol = 'xmlrpc'
-    group = False
-    if os.path.exists(configfile):
-        cp.read(configfile)
-        url = cp.get("bbnotify", "url")
-        ignore_builders = cp.get("bbnotify", "ignore-builders").split() or []
-        include_builders = cp.get("bbnotify", "include-builders").split() or []
-        protocol = cp.get("bbnotify", "protocol") or 'xmlrpc'
-        #group = bool(int(cp.get("bbnotify", "group") or '0'))
+    config_file = os.path.expanduser("~/.bbnotifyrc")
+
+    if os.path.exists(config_file):
+        config_fp = open(config_file)
+        config_format = get_config_format(config_fp)
+        config = CONFIG_PARSERS[config_format](config, config_fp)
+        config_fp.close()
 
     # parse commandline options
     parser = optparse.OptionParser()
@@ -47,21 +82,17 @@ def main():
         help="group status icons into one")
     parser.set_usage("%s\n%s" % (usage, parser.format_option_help()))
     (options, args) = parser.parse_args()
-    if options.ignore_builders:
-        ignore_builders = options.ignore_builders
-    if options.include_builders:
-        include_builders = options.include_builders
-    if options.protocol:
-        protocol = options.protocol
-    if options.group:
-        group = options.group
+    
+    for option in ('ignore_builders', 'include_builders', 'protocol', 'group'):
+        if getattr(options, option, None):
+            config[option] = getattr(options, option)
+            
     if len(args) > 0:
-        url = args[0]
-    if not url:
+        config['url'] = args[0]
+    if not config['url']:
         parser.error("Missing url")
 
-    # run!
-    Notificator(url, ignore_builders, include_builders, protocol=protocol, group=group)
+    Notificator(**config)
     if not options.nodaemon:
         daemonize()
     gtk.main()
