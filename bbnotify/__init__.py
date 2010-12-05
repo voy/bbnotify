@@ -10,9 +10,6 @@ from bbnotify.daemonize import daemonize
 from bbnotify.config import parse_config
 
 
-
-    
-
 def main():
     usage = """Usage: %prog [options] http://buildboturl/xmlrpc"""
     config = parse_config()
