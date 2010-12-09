@@ -36,7 +36,7 @@ Usage
 
 Using a configuration file
 --------------------------
-You can save some of your options in the file ~/.bbnotifyrc in the form
+You can save some of your options in the file ~/.bbnotifyrc in the form:
 
 ::
 
@@ -46,4 +46,15 @@ You can save some of your options in the file ~/.bbnotifyrc in the form
  include-builders=list of builders to include
  protocol=json|xmlrpc
 
+Alternatively, you can use write your configuration file in JSON.
+You should prefer this format as some planned features will probably be
+supported in JSON only.
 
+::
+
+  {
+    "url": "http://malina:8010/json",
+    "protocol": "json",
+    "ignore_builders": [],
+    "include_builders": []
+  }

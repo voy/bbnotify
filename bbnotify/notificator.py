@@ -20,7 +20,6 @@ PROTOCOLS = {
 }
 
 
-
 class Notificator(object):
     ICONS = {
         'successful': 'green.png',
@@ -31,13 +30,13 @@ class Notificator(object):
         'partial': 'redgreen.png',
     }
 
-    def __init__(self, url, ignore_builders, include_builders, protocol, group):
+    def __init__(self, url, ignore_builders, include_builders, protocol, groups, **kwargs):
         if url.endswith('/'):
             url = url[:-1]
         self.url = url
         self.buildbot = PROTOCOLS[protocol](self.url, include=include_builders, ignore=ignore_builders)
         self.url = url
-        self.group = group
+        self.groups = groups
         self.icons = {}
         self.statuses = {}
         self.start()
@@ -68,12 +67,13 @@ class Notificator(object):
         group_results = set([])
         for name, status in self.buildbot.get_status().items():
             self._notify(name, status)
-            if self.group:
+            # TODO: account for actual group definitions
+            if self.groups:
                 group_results.add(status['result'])
             else:
                 self._refresh_icon(name, status['result'])
             self.statuses[name] = status
-        if self.group:
+        if self.groups:
             if group_results == set(['successful']):
                 result = 'successful'
             elif 'successful' in group_results:
